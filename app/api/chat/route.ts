@@ -1,52 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { saveLead, Lead } from "@/lib/supabase";
+import { saveLead } from "@/lib/supabase";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY!,
 });
 
-// ============================================================
-// CONTEXTO DO IMÓVEL
+// ─── Contexto do Imóvel ───────────────────────────────────────────────────────
 // Cole aqui o conteúdo completo do ficheiro imovel_teste_benfica.txt
-// ============================================================
 const IMOVEL_CONTEXT = `
-[T3 BENFICA - REF: 2026-Bnf01
-LOCALIZAÇÃO: Rua de Pedrouços, Benfica, Lisboa.
-PREÇO: €420.000 (Negociável).
-TIPOLOGIA: T3 (3 Quartos, sendo 1 em Suite).
-
-CARACTERÍSTICAS PRINCIPAIS:
-
-Área Útil: 110m².
-
-Casas de Banho: 2 completas.
-
-Cozinha: Totalmente equipada com eletrodomésticos Bosch (placa, forno, exaustor, frigorífico americano).
-
-Varanda: 8m² com vista desafogada para o Parque Silva Porto.
-
-Climatização: Ar condicionado instalado na sala e nos quartos.
-
-EXTRAS:
-
-Arrecadação individual no piso -1.
-
-Prédio com 2 elevadores.
-
-Orientação Solar: Nascente-Poente.
-
-O QUE NÃO POSSUI (IMPORTANTE):
-
-Garagem: Não possui lugar de garagem privativo (estacionamento fácil para residentes na rua).
-
-Piscina/Ginásio: O condomínio não dispõe destas comodidades.
-
-CONDIÇÕES DE VISITA:
-
-Disponibilidade: Terças e Quintas-feiras, das 17h30 às 19h30.
-
-Requisito: Apenas clientes com pré-aprovação bancária ou prova de fundos (capitais próprios).]
+[COLE AQUI O CONTEÚDO DO FICHEIRO imovel_teste_benfica.txt]
 `;
 
 const SYSTEM_PROMPT = `
@@ -59,71 +22,76 @@ ${IMOVEL_CONTEXT}
 INSTRUÇÕES DE QUALIFICAÇÃO:
 - Durante a conversa, recolhe de forma natural os seguintes dados do utilizador:
   1. Nome completo
-  2. Número de telemóvel
-  3. Estado do crédito (ex: "pré-aprovado", "a tratar", "sem crédito", "pagamento a pronto")
-- Quando tiveres os 3 dados, confirma com o utilizador e informa que um consultor entrará em contacto.
+  2. Número de telemóvel português (ex: 912345678)
+  3. Estado do crédito: "pré-aprovado", "a tratar", "sem crédito" ou "pagamento a pronto"
+- Quando tiveres os 3 dados, confirma com o utilizador e informa que um consultor entrará em contacto brevemente.
 - Responde sempre em Português de Portugal.
 - Sê profissional, amigável e conciso.
 - Não inventes informação sobre o imóvel que não esteja no contexto fornecido.
 `;
 
-// ============================================================
-// FUNÇÃO DE QUALIFICAÇÃO DE LEAD
-// ============================================================
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
 interface ExtractedLead {
   nome?: string;
   telemovel?: string;
   estado_credito?: string;
 }
 
-function extractLeadData(messages: Array<{ role: string; content: string }>): ExtractedLead {
-  const fullConversation = messages
+interface QualifiedLead {
+  nome: string;
+  telemovel: string;
+  estado_credito: string;
+}
+
+// ─── Extração de Dados do Lead ────────────────────────────────────────────────
+
+function extractLeadData(messages: ChatMessage[]): ExtractedLead {
+  const userMessages = messages
+    .filter((m) => m.role === "user")
     .map((m) => m.content)
-    .join(" ")
-    .toLowerCase();
+    .join(" ");
+
+  const fullConversation = messages.map((m) => m.content).join(" ");
 
   const extracted: ExtractedLead = {};
 
-  // Extração de telemóvel (padrões PT: 9xxxxxxxx ou +351 9xxxxxxxx)
-  const phoneRegex = /(\+351\s?)?([9][1236]\d{7})/g;
-  const phoneMatch = fullConversation.match(phoneRegex);
+  // 1. Telemóvel — padrões PT: 9xxxxxxxx ou +351 9xxxxxxxx
+  const phoneRegex = /(?:\+351\s?)?([9][1236]\d{7})/g;
+  const phoneMatch = userMessages.match(phoneRegex);
   if (phoneMatch) {
-    extracted.telemovel = phoneMatch[0].replace(/\s/g, "");
+    extracted.telemovel = phoneMatch[0].replace(/[\s\-]/g, "");
   }
 
-  // Extração de estado de crédito
-  const creditKeywords: Record<string, string> = {
-    "pré-aprovado": "pré-aprovado",
-    "pre-aprovado": "pré-aprovado",
-    "pré aprovado": "pré-aprovado",
-    aprovado: "pré-aprovado",
-    "a tratar": "a tratar",
-    "tratar crédito": "a tratar",
-    "sem crédito": "sem crédito",
-    "sem credito": "sem crédito",
-    pronto: "pagamento a pronto",
-    "a pronto": "pagamento a pronto",
-    "pagamento a pronto": "pagamento a pronto",
-  };
+  // 2. Estado de crédito
+  const creditMap: Array<[RegExp, string]> = [
+    [/pr[eé].?aprovad[oa]/i, "pré-aprovado"],
+    [/aprovad[oa]/i, "pré-aprovado"],
+    [/a tratar/i, "a tratar"],
+    [/tratar.{0,10}cr[eé]dito/i, "a tratar"],
+    [/sem cr[eé]dito/i, "sem crédito"],
+    [/pagamento a pronto/i, "pagamento a pronto"],
+    [/a pronto/i, "pagamento a pronto"],
+    [/\bpronto\b/i, "pagamento a pronto"],
+  ];
 
-  for (const [keyword, value] of Object.entries(creditKeywords)) {
-    if (fullConversation.includes(keyword)) {
+  for (const [pattern, value] of creditMap) {
+    if (pattern.test(fullConversation)) {
       extracted.estado_credito = value;
       break;
     }
   }
 
-  // Extração de nome (heurística: procura padrão "chamo-me X", "sou o/a X", "nome é X")
-  const namePatterns = [
-    /(?:chamo-me|chamo me|sou o|sou a|meu nome é|nome é|nome:)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s[A-ZÀ-Ú][a-zà-ú]+)*)/i,
-    /(?:^|\s)([A-ZÀ-Ú][a-zà-ú]+\s[A-ZÀ-Ú][a-zà-ú]+)(?:\s|$)/,
+  // 3. Nome — padrões comuns em PT
+  const namePatterns: RegExp[] = [
+    /(?:chamo-me|chamo me|sou o|sou a|meu nome [eé]|nome [eé]|nome:)\s+([A-ZÀ-Úa-zà-ú][a-zà-ú]+(?:\s[A-ZÀ-Úa-zà-ú][a-zà-ú]+)+)/i,
+    /^([A-ZÀ-Ú][a-zà-ú]+(?:\s[A-ZÀ-Ú][a-zà-ú]+)+)$/m,
   ];
-
-  // Procura apenas nas mensagens do utilizador
-  const userMessages = messages
-    .filter((m) => m.role === "user")
-    .map((m) => m.content)
-    .join(" ");
 
   for (const pattern of namePatterns) {
     const match = userMessages.match(pattern);
@@ -136,37 +104,41 @@ function extractLeadData(messages: Array<{ role: string; content: string }>): Ex
   return extracted;
 }
 
-function isLeadComplete(lead: ExtractedLead): lead is Lead {
-  return !!(lead.nome && lead.telemovel && lead.estado_credito);
+function isLeadComplete(lead: ExtractedLead): lead is QualifiedLead {
+  return !!(
+    lead.nome &&
+    lead.nome.trim().length > 2 &&
+    lead.telemovel &&
+    lead.telemovel.length >= 9 &&
+    lead.estado_credito
+  );
 }
 
-// ============================================================
-// ROUTE HANDLER
-// ============================================================
+// ─── Route Handler ────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages } = body as {
-      messages: Array<{ role: "user" | "assistant"; content: string }>;
-    };
+    const { messages } = body as { messages: ChatMessage[] };
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
-        { error: "Campo 'messages' é obrigatório e deve ser um array." },
+        { error: "Campo 'messages' é obrigatório e deve ser um array não vazio." },
         { status: 400 }
       );
     }
 
-    // Verifica se o lead já está qualificado
+    // Qualificação do lead
     const extractedLead = extractLeadData(messages);
+    const qualified = isLeadComplete(extractedLead);
     let leadSaved = false;
 
-    if (isLeadComplete(extractedLead)) {
+    if (qualified) {
       const result = await saveLead(extractedLead);
       leadSaved = result.success;
     }
 
-    // Chama a API da Groq
+    // Chamada à API da Groq
     const completion = await groq.chat.completions.create({
       model: "llama3-70b-8192",
       messages: [
@@ -177,18 +149,19 @@ export async function POST(req: NextRequest) {
       max_tokens: 1024,
     });
 
-    const assistantMessage = completion.choices[0]?.message?.content ?? "";
+    const assistantMessage =
+      completion.choices[0]?.message?.content ?? "Desculpe, não consegui gerar uma resposta.";
 
     return NextResponse.json({
       message: assistantMessage,
-      leadQualified: isLeadComplete(extractedLead),
+      leadQualified: qualified,
       leadSaved,
-      // Útil para debug — remove em produção se preferires
-      extractedData: extractedLead,
+      extractedData: extractedLead, // remove em produção se preferires
     });
   } catch (error: unknown) {
-    console.error("[API Chat] Erro:", error);
-    const message = error instanceof Error ? error.message : "Erro interno do servidor.";
+    console.error("[API /chat] Erro:", error);
+    const message =
+      error instanceof Error ? error.message : "Erro interno do servidor.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
