@@ -38,16 +38,16 @@ export default function Dashboard() {
   const [leadQualified, setLeadQualified] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  async function fetchLeads() {
+ async function fetchLeads() {
     setLoadingLeads(true);
     setLeadsError(null);
     const { data, error } = await supabaseClient
       .from("leads")
-      .select("*")
+      .select("id, nome, telemovel, estado_credito, created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
-      setLeadsError("Erro ao carregar leads: " + error.message);
+      setLeadsError("Erro: " + error.message);
     } else {
       setLeads(data ?? []);
     }
