@@ -7,26 +7,28 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 // Função para gravar lead (Esta função será chamada apenas pelo servidor)
-export async function saveLead(lead: any) {
-  // Importamos a chave secreta apenas dentro da função
-  // Isso garante que o browser ignore este bloco
+export async function saveLead(lead: { nome: string; telemovel: string; estado_credito: string }) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const adminClient = createClient(supabaseUrl, serviceKey);
 
-  const { error } = await adminClient
+  console.log("[Supabase] Tentando gravar:", lead);
+
+  const { data, error } = await adminClient
     .from("leads")
     .insert([
       {
         nome: lead.nome,
         telemovel: lead.telemovel,
         estado_credito: lead.estado_credito,
-      },
-    ]);
+      }
+    ])
+    .select();
 
   if (error) {
-    console.error("[Supabase] Erro:", error.message);
+    console.error("[Supabase] Erro detalhado:", error);
     return { success: false, error: error.message };
   }
 
+  console.log("[Supabase] Gravado com sucesso:", data);
   return { success: true };
 }
