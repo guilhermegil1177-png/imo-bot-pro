@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabaseClient } from "../lib/supabase";
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+// ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface Lead {
   id: number;
