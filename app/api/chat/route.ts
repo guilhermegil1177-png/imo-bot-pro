@@ -5,7 +5,27 @@ import { saveLead } from "../../../lib/supabase";
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 const IMOVEL_CONTEXT = `
-[COLE AQUI O CONTEÚDO DO FICHEIRO imovel_teste_benfica.txt]
+[T3 BENFICA - REF: 2026-Bnf01
+LOCALIZAÇÃO: Rua de Pedrouços, Benfica, Lisboa.
+PREÇO: €420.000 (Negociável).
+TIPOLOGIA: T3 (3 Quartos, sendo 1 em Suite).
+CARACTERÍSTICAS PRINCIPAIS:
+• Área Útil: 110m².
+• Casas de Banho: 2 completas.
+• Cozinha: Totalmente equipada com eletrodomésticos Bosch (placa, forno, exaustor, frigorífico americano).
+• Varanda: 8m² com vista desafogada para o Parque Silva Porto.
+• Climatização: Ar condicionado instalado na sala e nos quartos.
+EXTRAS:
+• Arrecadação individual no piso -1.
+• Prédio com 2 elevadores.
+• Orientação Solar: Nascente-Poente.
+O QUE NÃO POSSUI (IMPORTANTE):
+• Garagem: Não possui lugar de garagem privativo (estacionamento fácil para residentes na rua).
+• Piscina/Ginásio: O condomínio não dispõe destas comodidades.
+CONDIÇÕES DE VISITA:
+• Disponibilidade: Terças e Quintas-feiras, das 17h30 às 19h30.
+• Requisito: Apenas clientes com pré-aprovação bancária ou prova de fundos (capitais próprios).
+]
 `;
 
 const SYSTEM_PROMPT = `
