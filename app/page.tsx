@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabaseClient } from "../lib/supabase";
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Lead {
   id: number;
@@ -43,17 +43,13 @@ export default function Dashboard() {
     setLeadsError(null);
     const { data, error } = await supabaseClient
       .from("leads")
-      .select("id, nome, telemovel, credito_aprovado, created_at") // Sem acento
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
-      setLeadsError("Erro: " + error.message);
+      setLeadsError("Erro ao carregar leads: " + error.message);
     } else {
-      const leadsAdaptados = data?.map((l: any) => ({
-        ...l,
-        estado_credito: l.credito_aprovado ? "pré-aprovado" : "a tratar"
-      }));
-      setLeads(leadsAdaptados ?? []);
+      setLeads(data ?? []);
     }
     setLoadingLeads(false);
   }
