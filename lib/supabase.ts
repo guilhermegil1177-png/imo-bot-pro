@@ -3,30 +3,30 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Este cliente é seguro para o Browser (Frontend)
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-export async function saveLead(lead: { nome: string; telemovel: string; estado_credito: string }) {
+// Função para gravar lead (Esta função será chamada apenas pelo servidor)
+export async function saveLead(lead: any) {
+  // Importamos a chave secreta apenas dentro da função
+  // Isso garante que o browser ignore este bloco
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const adminClient = createClient(supabaseUrl, serviceKey);
 
-  const isAprovado = lead.estado_credito === "pré-aprovado" || lead.estado_credito === "pagamento a pronto";
-
-  const { data, error } = await adminClient
+  const { error } = await adminClient
     .from("leads")
     .insert([
       {
         nome: lead.nome,
         telemovel: lead.telemovel,
-        credito_aprovado: isAprovado, // Nome sem acento
-        perfil_cliente: `Estado: ${lead.estado_credito}`,
-        resumo_conversa: "Qualificado via Chat"
-      }
-    ])
-    .select();
+        estado_credito: lead.estado_credito,
+      },
+    ]);
 
   if (error) {
-    console.error("Erro Supabase:", error.message);
+    console.error("[Supabase] Erro:", error.message);
     return { success: false, error: error.message };
   }
+
   return { success: true };
 }
