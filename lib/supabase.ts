@@ -12,16 +12,15 @@ export async function saveLead(lead: { nome: string; telemovel: string; estado_c
   // Mapeamos o texto do bot para o booleano da tua tabela
   const isAprovado = lead.estado_credito === "pré-aprovado" || lead.estado_credito === "pagamento a pronto";
 
-  const { data, error } = await adminClient
+ const { data, error } = await adminClient
     .from("leads")
     .insert([
       {
         nome: lead.nome,
         telemovel: lead.telemovel,
-        // Usamos os nomes exatos das tuas colunas do print
-        crédito_aprovado: isAprovado, 
-        perfil_cliente: `Estado do crédito: ${lead.estado_credito}`,
-        resumo_conversa: "Lead qualificado via Chat Simulado"
+        credito_aprovado: temCredito, 
+        perfil_cliente: lead.estado_credito,
+        resumo_conversa: "Lead qualificado via Dashboard"
       },
     ])
     .select();
