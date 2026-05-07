@@ -142,12 +142,16 @@ export async function POST(req: NextRequest) {
     let leadSaved = false;
 
     if (qualified) {
-      const result = await saveLead(extractedLead);
-      leadSaved = result.success;
-    }
+  const result = await saveLead({
+    nome: extractedLead.nome!,
+    telemovel: extractedLead.telemovel!,
+    estado_credito: extractedLead.estado_credito!
+  });
+  leadSaved = result.success;
+}
 
     const completion = await groq.chat.completions.create({
-      model: "llama3-70b-8192",
+      model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         ...messages,
