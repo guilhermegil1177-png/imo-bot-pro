@@ -156,8 +156,13 @@ export async function POST(req: NextRequest) {
     const qualified = isLeadComplete(extractedLead);
     let leadSaved = false;
 
+    // ATUALIZAÇÃO DA CHAMADA DA FUNÇÃO saveLead
     if (qualified) {
-      const result = await saveLead(extractedLead);
+      const result = await saveLead({
+        nome: extractedLead.nome!,
+        telemovel: extractedLead.telemovel!,
+        estado_credito: extractedLead.estado_credito!
+      });
       leadSaved = result.success;
     }
 
