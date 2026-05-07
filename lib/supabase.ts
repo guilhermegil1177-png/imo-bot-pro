@@ -3,15 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Este cliente é seguro para o Browser (Frontend)
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-// Função para gravar lead (Esta função será chamada apenas pelo servidor)
 export async function saveLead(lead: { nome: string; telemovel: string; estado_credito: string }) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const adminClient = createClient(supabaseUrl, serviceKey);
 
-  console.log("[Supabase] Tentando gravar:", lead);
+  // Mapeamos o texto do bot para o booleano da tua tabela
+  const isAprovado = lead.estado_credito === "pré-aprovado" || lead.estado_credito === "pagamento a pronto";
 
   const { data, error } = await adminClient
     .from("leads")
@@ -19,16 +18,18 @@ export async function saveLead(lead: { nome: string; telemovel: string; estado_c
       {
         nome: lead.nome,
         telemovel: lead.telemovel,
-        estado_credito: lead.estado_credito,
-      }
+        // Usamos os nomes exatos das tuas colunas do print
+        crédito_aprovado: isAprovado, 
+        perfil_cliente: `Estado do crédito: ${lead.estado_credito}`,
+        resumo_conversa: "Lead qualificado via Chat Simulado"
+      },
     ])
     .select();
 
   if (error) {
-    console.error("[Supabase] Erro detalhado:", error);
+    console.error("ERRO NO SUPABASE:", error.message);
     return { success: false, error: error.message };
   }
 
-  console.log("[Supabase] Gravado com sucesso:", data);
   return { success: true };
 }
