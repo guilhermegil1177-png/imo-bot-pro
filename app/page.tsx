@@ -41,17 +41,22 @@ export default function Dashboard() {
  async function fetchLeads() {
     setLoadingLeads(true);
     setLeadsError(null);
-    const { data, error } = await supabaseClient
-      .from("leads")
-      .select("id, nome, telemovel, estado_credito, created_at")
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabaseClient
+        .from("leads")
+        .select("id, nome, telemovel, estado_credito, created_at")
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      setLeadsError("Erro: " + error.message);
-    } else {
-      setLeads(data ?? []);
+      if (error) {
+        setLeadsError(error.message);
+      } else {
+        setLeads(data || []);
+      }
+    } catch (err) {
+      setLeadsError("Falha catastrófica na ligação.");
+    } finally {
+      setLoadingLeads(false);
     }
-    setLoadingLeads(false);
   }
 
   useEffect(() => {
