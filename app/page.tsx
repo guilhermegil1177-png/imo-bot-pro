@@ -41,7 +41,6 @@ export default function Dashboard() {
   async function fetchLeads() {
     setLoadingLeads(true);
     setLeadsError(null);
-    
     const { data, error } = await supabaseClient
       .from("leads")
       .select("id, nome, telemovel, credito_aprovado, created_at") // Sem acento
