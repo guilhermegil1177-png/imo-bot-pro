@@ -9,7 +9,6 @@ export async function saveLead(lead: { nome: string; telemovel: string; estado_c
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const adminClient = createClient(supabaseUrl, serviceKey);
 
-  // Mapeamos o texto do bot para o booleano da tua tabela
   const isAprovado = lead.estado_credito === "pré-aprovado" || lead.estado_credito === "pagamento a pronto";
 
   const { data, error } = await adminClient
@@ -18,18 +17,16 @@ export async function saveLead(lead: { nome: string; telemovel: string; estado_c
       {
         nome: lead.nome,
         telemovel: lead.telemovel,
-        // Usamos os nomes exatos das tuas colunas do print
-        crédito_aprovado: isAprovado, 
-        perfil_cliente: `Estado do crédito: ${lead.estado_credito}`,
-        resumo_conversa: "Lead qualificado via Chat Simulado"
-      },
+        credito_aprovado: isAprovado, // Nome sem acento
+        perfil_cliente: `Estado: ${lead.estado_credito}`,
+        resumo_conversa: "Qualificado via Chat"
+      }
     ])
     .select();
 
   if (error) {
-    console.error("ERRO NO SUPABASE:", error.message);
+    console.error("Erro Supabase:", error.message);
     return { success: false, error: error.message };
   }
-
   return { success: true };
 }
