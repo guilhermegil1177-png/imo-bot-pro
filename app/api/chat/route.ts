@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { saveLead } from "@/lib/supabase";
+import { saveLead } from "../../../lib/supabase";
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY!,
-});
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
-// ─── Contexto do Imóvel ───────────────────────────────────────────────────────
-// Cole aqui o conteúdo completo do ficheiro imovel_teste_benfica.txt
 const IMOVEL_CONTEXT = `
 [COLE AQUI O CONTEÚDO DO FICHEIRO imovel_teste_benfica.txt]
 `;
@@ -30,8 +26,6 @@ INSTRUÇÕES DE QUALIFICAÇÃO:
 - Não inventes informação sobre o imóvel que não esteja no contexto fornecido.
 `;
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
 interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -49,8 +43,6 @@ interface QualifiedLead {
   estado_credito: string;
 }
 
-// ─── Extração de Dados do Lead ────────────────────────────────────────────────
-
 function extractLeadData(messages: ChatMessage[]): ExtractedLead {
   const userMessages = messages
     .filter((m) => m.role === "user")
@@ -58,17 +50,16 @@ function extractLeadData(messages: ChatMessage[]): ExtractedLead {
     .join(" ");
 
   const fullConversation = messages.map((m) => m.content).join(" ");
-
   const extracted: ExtractedLead = {};
 
-  // 1. Telemóvel — padrões PT: 9xxxxxxxx ou +351 9xxxxxxxx
+  // Telemóvel
   const phoneRegex = /(?:\+351\s?)?([9][1236]\d{7})/g;
   const phoneMatch = userMessages.match(phoneRegex);
   if (phoneMatch) {
     extracted.telemovel = phoneMatch[0].replace(/[\s\-]/g, "");
   }
 
-  // 2. Estado de crédito
+  // Estado de crédito
   const creditMap: Array<[RegExp, string]> = [
     [/pr[eé].?aprovad[oa]/i, "pré-aprovado"],
     [/aprovad[oa]/i, "pré-aprovado"],
@@ -87,7 +78,7 @@ function extractLeadData(messages: ChatMessage[]): ExtractedLead {
     }
   }
 
-  // 3. Nome — padrões comuns em PT
+  // Nome
   const namePatterns: RegExp[] = [
     /(?:chamo-me|chamo me|sou o|sou a|meu nome [eé]|nome [eé]|nome:)\s+([A-ZÀ-Úa-zà-ú][a-zà-ú]+(?:\s[A-ZÀ-Úa-zà-ú][a-zà-ú]+)+)/i,
     /^([A-ZÀ-Ú][a-zà-ú]+(?:\s[A-ZÀ-Ú][a-zà-ú]+)+)$/m,
@@ -114,8 +105,6 @@ function isLeadComplete(lead: ExtractedLead): lead is QualifiedLead {
   );
 }
 
-// ─── Route Handler ────────────────────────────────────────────────────────────
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -128,7 +117,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Qualificação do lead
     const extractedLead = extractLeadData(messages);
     const qualified = isLeadComplete(extractedLead);
     let leadSaved = false;
@@ -138,7 +126,6 @@ export async function POST(req: NextRequest) {
       leadSaved = result.success;
     }
 
-    // Chamada à API da Groq
     const completion = await groq.chat.completions.create({
       model: "llama3-70b-8192",
       messages: [
@@ -150,13 +137,14 @@ export async function POST(req: NextRequest) {
     });
 
     const assistantMessage =
-      completion.choices[0]?.message?.content ?? "Desculpe, não consegui gerar uma resposta.";
+      completion.choices[0]?.message?.content ??
+      "Desculpe, não consegui gerar uma resposta.";
 
     return NextResponse.json({
       message: assistantMessage,
       leadQualified: qualified,
       leadSaved,
-      extractedData: extractedLead, // remove em produção se preferires
+      extractedData: extractedLead,
     });
   } catch (error: unknown) {
     console.error("[API /chat] Erro:", error);
