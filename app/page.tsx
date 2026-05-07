@@ -42,19 +42,17 @@ export default function Dashboard() {
     setLoadingLeads(true);
     setLeadsError(null);
     
-    // Lemos as colunas exatas que estão no teu print do Supabase
     const { data, error } = await supabaseClient
       .from("leads")
-      .select("id, nome, telemovel, crédito_aprovado, created_at")
+      .select("id, nome, telemovel, credito_aprovado, created_at") // Sem acento
       .order("created_at", { ascending: false });
 
     if (error) {
-      setLeadsError("Erro ao carregar leads: " + error.message);
+      setLeadsError("Erro: " + error.message);
     } else {
-      // Aqui está o segredo: convertemos o 'bool' da tabela para o 'texto' do dashboard
       const leadsAdaptados = data?.map((l: any) => ({
         ...l,
-        estado_credito: l.crédito_aprovado ? "pré-aprovado" : "a tratar"
+        estado_credito: l.credito_aprovado ? "pré-aprovado" : "a tratar"
       }));
       setLeads(leadsAdaptados ?? []);
     }
